@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "voice-agent"
+version = "0.1.0"
+description = ""
+authors = ["Alan Bohannon <alanbohannon@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pipecat = "^0.3.0"
+dotenv = "^0.9.9"
+loguru = "^0.7.3"
+pipecat-ai-cli = "^0.1.6"
+pipecat-ai = {extras = ["runner"], version = "^0.0.91"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
