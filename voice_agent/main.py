@@ -1,6 +1,5 @@
-import os
+import aiohttp
 
-from dotenv import load_dotenv
 from loguru import logger
 
 print("🚀 Starting Pipecat bot...")
@@ -35,25 +34,28 @@ from pipecat.services.elevenlabs.stt import ElevenLabsSTTService as ElevenLabsST
 
 from pipecat.pipeline.pipeline import Pipeline
 
+from voice_agent.config import settings
+
 
 logger.info("✅ All components loaded successfully!")
-
-load_dotenv(override=True)
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     logger.info(f"Starting bot")
     
+    session = aiohttp.ClientSession()
+    
     tts = ElevenLabsTTS(
-        api_key=os.getenv("ELEVENLABS_API_KEY"),
+        api_key=settings.elevenlabs_api_key,
         voice_id="Xb7hH8MSUJpSbSDYk0k2",    # Alice, British English
     )
     
     stt = ElevenLabsSTT(
-        api_key=os.getenv("ELEVENLABS_API_KEY"),
+        api_key=settings.elevenlabs_api_key,
         model_id="eleven_monolingual_v2_5",    # English
+        aiohttp_session=session,
     )
     
-    llm = OpenAILLMService(model="gpt-3.5-turbogpt-5-nano-2025-08-07",api_key=os.getenv("OPENAI_API_KEY"))
+    llm = OpenAILLMService(model="gpt-5-nano-2025-08-07", api_key=settings.openai_api_key)
     
     messages = [
         {
@@ -84,6 +86,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     task = PipelineTask(
         pipeline,
         params=PipelineParams(
+            allow_interruptions=False,
             enable_metrics=True,
             enable_usage_metrics=True,
         ),
@@ -101,10 +104,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     async def on_client_disconnected(transport, client):
         logger.info(f"Client disconnected")
         await task.cancel()
+        # Close the aiohttp session when client disconnects
+        await session.close()
     
     runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
-    await runner.run(task)  
     
+    try:
+        await runner.run(task)
+    finally:
+        # Ensure session is closed even if an exception occurs
+        if not session.closed:
+            await session.close()
     
 
 async def bot(runner_args: RunnerArguments):
@@ -130,5 +140,3 @@ async def bot(runner_args: RunnerArguments):
 if __name__ == "__main__":
     from pipecat.runner.run import main
     main()
-    
-    
