@@ -11,7 +11,8 @@ pipecat = "^0.3.0"
 dotenv = "^0.9.9"
 loguru = "^0.7.3"
 pipecat-ai-cli = "^0.1.6"
-pipecat-ai = {extras = ["runner"], version = "^0.0.91"}
+pipecat-ai = {extras = ["webrtc","daily","silero","deepgram","openai","cartesia","local-smart-turn-v3","runner","local-smart-turn-v3","elevenlabs"], version = "^0.0.91"}
+websockets = "^15.0.1"
 
 
 [build-system]
