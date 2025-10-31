@@ -14,18 +14,21 @@ class Settings(BaseSettings):
     )
     
     # API keys
-    NYLAS_API_KEY: str = Field(..., env="NYLAS_API_KEY")
-    ELEVENLABS_API_KEY: str = Field(..., env="ELEVENLABS_API_KEY")
-    OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
+    NYLAS_API_KEY: str = Field(description="Nylas API Key")
+    ELEVENLABS_API_KEY: str = Field(description="ElevenLabs API Key")
+    OPENAI_API_KEY: str = Field(description="OpenAI API Key")
+    NYLAS_EMAIL_ACCOUNT_GRANT_ID: str = Field(description="Nylas Email Account Grant ID")
 
-settings = Settings.model_validate({})
+# Create settings instance - this will automatically load from env vars
+settings = Settings()
 
 def validate_settings():
     """Validate that all required settings are available"""
     required_settings = {
-        "NYLAS_API_KEY": settings.nylas_api_key,
-        "OPENAI_API_KEY": settings.openai_api_key,
-        "ELEVENLABS_API_KEY": settings.elevenlabs_api_key,
+        "NYLAS_API_KEY": settings.NYLAS_API_KEY,
+        "OPENAI_API_KEY": settings.OPENAI_API_KEY,
+        "ELEVENLABS_API_KEY": settings.ELEVENLABS_API_KEY,
+        "NYLAS_EMAIL_ACCOUNT_GRANT_ID": settings.NYLAS_EMAIL_ACCOUNT_GRANT_ID,
     }
 
     missing_settings = [name for name, value in required_settings.items() if not value]
