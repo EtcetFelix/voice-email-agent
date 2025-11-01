@@ -45,6 +45,9 @@ from voice_agent.tools.email_tools import (
     search_emails_by_sender_handler,
     get_recent_emails_handler
 )
+from voice_agent.email_services.transport_manager import SimpleTransportManager
+from voice_agent.email_services.email_service import EmailService
+from voice_agent.tools.email_send_tool import send_email_handler, send_email_schema
 
 logger.info("✅ All components loaded successfully!")
 
@@ -53,11 +56,12 @@ logger.info("✅ All components loaded successfully!")
 _database = None
 _vector_store = None
 _email_tools = None
+_email_service = None  # Add this
 
 
 async def initialize_email_services():
-    """Initialize database, vector store, and run ETL before bot starts"""
-    global _database, _vector_store, _email_tools
+    """Initialize database, vector store, ETL, and email sending service before bot starts"""
+    global _database, _vector_store, _email_tools, _email_service
     
     logger.info("🔧 Initializing email services...")
     
@@ -88,14 +92,25 @@ async def initialize_email_services():
         logger.error(f"❌ ETL failed: {e}")
         logger.warning("⚠️  Continuing with existing data...")
     
-    # Create email tools
+    # Create email search tools
     _email_tools = EmailSearchTools(database=_database, vector_store=_vector_store)
     
     # Check counts
     email_count = await _database.get_email_count()
     vector_count = await _vector_store.get_count()
     logger.info(f"📧 {email_count} emails in database, {vector_count} emails in vector store")
-    logger.info("✅ Email services fully initialized!")
+    
+    # Initialize email sending service
+    logger.info("📧 Initializing email sending service...")
+    transport_manager = SimpleTransportManager(
+        nylas_api_key=settings.NYLAS_API_KEY if hasattr(settings, 'NYLAS_API_KEY') else None,
+        nylas_grant_id=settings.NYLAS_EMAIL_ACCOUNT_GRANT_ID if hasattr(settings, 'NYLAS_EMAIL_ACCOUNT_GRANT_ID') else None
+    )
+    transport = transport_manager.get_transport()
+    _email_service = EmailService(transport=transport)
+    logger.info("✅ Email sending service initialized")
+    
+    logger.info("✅ All email services fully initialized!")
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
@@ -120,7 +135,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         api_key=settings.OPENAI_API_KEY
     )
     
-    # Register function handlers using global email_tools
+    # Register email search functions
     logger.info("🔧 Registering email search functions...")
     llm.register_function(
         "search_emails",
@@ -134,27 +149,41 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         "get_recent_emails",
         lambda params: get_recent_emails_handler(params, _email_tools)
     )
-    logger.info("✅ Email search functions registered")
+    
+    # Register email sending function
+    logger.info("🔧 Registering email sending function...")
+    llm.register_function(
+        "send_email",
+        lambda params: send_email_handler(params, _email_service)
+    )
+    logger.info("✅ All email functions registered")
     
     messages = [
         {
             "role": "system",
-            "content": """You are a helpful email assistant named Alice. You can help users search and find information in their emails.
-
-When users ask about their emails, use the available tools to search for relevant information. 
-Be conversational and natural in your responses. Summarize email content clearly and concisely.
+            "content": """You are a helpful email assistant named Alice. You can help users search and send emails.
 
 Available capabilities:
 - Search emails by content or topic using search_emails
 - Find emails from specific senders using search_emails_by_sender
 - Get recent emails using get_recent_emails
+- Send emails to recipients using send_email
 
-Always confirm what you found and offer to provide more details if needed. Keep your responses brief and to the point.""",
+When users ask about their emails, use the search tools to find relevant information.
+When users ask to send an email, use the send_email tool.
+
+Be conversational and natural in your responses. Keep your responses brief and to the point.""",
         },
     ]
     
-    # Create context with email search tools
-    context = LLMContext(messages, tools=EMAIL_SEARCH_TOOLS)
+    # Combine search and send tools
+    from pipecat.adapters.schemas.tools_schema import ToolsSchema
+    ALL_EMAIL_TOOLS = ToolsSchema(
+        standard_tools=EMAIL_SEARCH_TOOLS.standard_tools + [send_email_schema]
+    )
+    
+    # Create context with all email tools
+    context = LLMContext(messages, tools=ALL_EMAIL_TOOLS)
     context_aggregator = LLMContextAggregatorPair(context)
 
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
@@ -176,7 +205,7 @@ Always confirm what you found and offer to provide more details if needed. Keep 
     task = PipelineTask(
         pipeline,
         params=PipelineParams(
-            allow_interruptions=False,
+            allow_interruptions=True,
             enable_metrics=True,
             enable_usage_metrics=True,
         ),
@@ -188,7 +217,7 @@ Always confirm what you found and offer to provide more details if needed. Keep 
         logger.info("👤 Client connected")
         messages.append({
             "role": "system",
-            "content": "Greet the user warmly and let them know you can help them search their emails. Keep it brief."
+            "content": "Greet the user warmly and let them know you can help them search and send emails. Keep it brief."
         })
         await task.queue_frames([LLMRunFrame()])
         
