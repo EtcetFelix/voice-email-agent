@@ -1,5 +1,5 @@
 # database/etl_repository.py
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from loguru import logger
 import aiosqlite
@@ -74,6 +74,8 @@ class ETLJobRepository:
                 
                 # Convert status string back to enum
                 job_data['status'] = ETLJobStatus(job_data['status'])
+                # Convert integer ID to string for Pydantic model
+                job_data['id'] = str(job_data['id'])
                 return ETLJobModel(**job_data)
             return None
             
@@ -81,7 +83,7 @@ class ETLJobRepository:
             logger.error(f"Failed to get ETL job {job_id}: {e}")
             raise
     
-    async def get_recent(self, limit: int = 20) -> list[ETLJobModel]:
+    async def get_recent(self, limit: int = 20) -> List[ETLJobModel]:
         """Get recent ETL jobs"""
         query = "SELECT * FROM etl_jobs ORDER BY started_at DESC LIMIT ?"
         
@@ -95,6 +97,7 @@ class ETLJobRepository:
             for row in rows:
                 job_data = dict(zip(columns, row))
                 job_data['status'] = ETLJobStatus(job_data['status'])
+                job_data['id'] = str(job_data['id']) 
                 jobs.append(ETLJobModel(**job_data))
                 
             return jobs

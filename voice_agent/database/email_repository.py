@@ -61,27 +61,54 @@ class EmailRepository:
         except Exception as e:
             logger.error(f"Failed to save email batch: {e}")
             raise
+        
+    async def get_recent(self, limit: int = 50) -> List[EmailModel]:
+        """Get recent emails ordered by date"""
+        query = "SELECT * FROM emails ORDER BY date DESC LIMIT ?"
+        
+        try:
+            cursor = await self.connection.execute(query, (limit,))
+            rows = await cursor.fetchall()
+            
+            # Convert rows to EmailModel objects
+            emails = []
+            columns = [description[0] for description in cursor.description]
+            
+            for row in rows:
+                email_data = dict(zip(columns, row))
+                emails.append(EmailModel(**email_data))
+                
+            return emails
+            
+        except Exception as e:
+            logger.error(f"Failed to get recent emails: {e}")
+            raise
     
     async def get_by_id(self, email_id: str) -> Optional[EmailModel]:
         """Get email by ID"""
-        query = "SELECT * FROM emails WHERE id = $1"
+        query = "SELECT * FROM emails WHERE id = ?"
         
         try:
-            row = await self.pool.fetchrow(query, email_id)
+            cursor = await self.connection.execute(query, (email_id,))
+            row = await cursor.fetchone()
+            
             if row:
-                return EmailModel(**dict(row))
+                columns = [description[0] for description in cursor.description]
+                email_data = dict(zip(columns, row))
+                return EmailModel(**email_data)
             return None
             
         except Exception as e:
             logger.error(f"Failed to get email {email_id}: {e}")
             raise
-    
+
     async def exists(self, email_id: str) -> bool:
         """Check if email exists"""
-        query = "SELECT 1 FROM emails WHERE id = $1"
+        query = "SELECT 1 FROM emails WHERE id = ?"
         
         try:
-            result = await self.pool.fetchval(query, email_id)
+            cursor = await self.connection.execute(query, (email_id,))
+            result = await cursor.fetchone()
             return result is not None
             
         except Exception as e:
@@ -92,7 +119,9 @@ class EmailRepository:
         """Get total email count"""
         query = "SELECT COUNT(*) FROM emails"
         try:
-            return await self.pool.fetchval(query)
+            cursor = await self.connection.execute(query)
+            result = await cursor.fetchone()
+            return result[0] if result else 0
         except Exception as e:
             logger.error(f"Failed to get email count: {e}")
             raise

@@ -1,5 +1,5 @@
 # email_etl_service.py
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
 from loguru import logger
 from voice_agent.database_service import Database
@@ -64,7 +64,7 @@ class EmailETLService:
                     to_name=to_info.get("name", ""),
                     to_email=to_info.get("email", ""),
                     date=raw_email.get("date"),
-                    processed_at=datetime.now(datetime.timezone.utc)
+                    processed_at=datetime.now(timezone.utc)
                 )
                 
                 email_models.append(email_model)
