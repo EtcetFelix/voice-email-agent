@@ -187,7 +187,7 @@ voice-email-agent/
 ## ▶️ Running the Agent
 
 ```bash
-python bot.py
+python main.py
 ```
 
 You should see logs like:
