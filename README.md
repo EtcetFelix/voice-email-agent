@@ -4,6 +4,16 @@ An **AI-powered email assistant** built with [Pipecat](https://github.com/pipeca
 
 ---
 
+## 🎥 Demo Videos
+
+You can watch the demo videos of the agent in action here:
+
+👉 **[Google Drive Demo Folder](https://drive.google.com/drive/folders/15JIO4mF95D_9hhkN1tUh332ILmIKdGeT?usp=sharing)**
+
+> The folder contains two demo clips showing the agent fetching, searching, and sending emails in real time.
+
+---
+
 ## 🚀 Overview
 
 **Alice** (the assistant) can:
@@ -214,9 +224,6 @@ You should see logs like:
 
   * Check logs around the tool call for any TTS enqueue/send errors or dropped audio frames.
   * Watch for ElevenLabs rate limits or transient 5xx; consider simple retry with backoff on TTS send.
-
-
-
 
 ---
 
