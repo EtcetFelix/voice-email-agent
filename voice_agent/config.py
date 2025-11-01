@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     
     # API keys
     NYLAS_API_KEY: str = Field(description="Nylas API Key")
+    EMAIL_MODE: str = "development"
+    MAILPIT_SMTP_HOST: str = "127.0.0.1"
+    MAILPIT_SMTP_PORT: int = 1025
+    TEST_FROM_EMAIL: str = "alice@voiceagent.local"
     ELEVENLABS_API_KEY: str = Field(description="ElevenLabs API Key")
     OPENAI_API_KEY: str = Field(description="OpenAI API Key")
     NYLAS_EMAIL_ACCOUNT_GRANT_ID: str = Field(description="Nylas Email Account Grant ID")
