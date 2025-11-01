@@ -1,5 +1,4 @@
 # test_fetch_emails.py
-import asyncio
 import pytest
 from voice_agent.email_fetcher import NylasEmailFetcher
 from voice_agent.config import settings

@@ -1,5 +1,4 @@
 # email_fetcher.py
-import asyncio
 import aiohttp
 from typing import List, Dict, Optional
 from loguru import logger
