@@ -93,14 +93,12 @@ class TestEmailSearchTools:
         assert len(results) > 0
         assert len(results) <= 5
         
-        # Check result structure
+        # Check result structure (updated to match new format)
         first_result = results[0]
         assert "subject" in first_result
         assert "from_name" in first_result
         assert "from_email" in first_result
-        assert "date" in first_result
-        assert "body_preview" in first_result
-        assert "relevance_score" in first_result
+        assert "preview" in first_result  # Changed from body_preview
         
         print(f"Search returned {len(results)} results")
         print(f"First result: {first_result['subject']}")
@@ -222,49 +220,36 @@ class TestEmailSearchTools:
         assert len(results) > 0
         assert len(results) <= min(5, emails_loaded)
         
-        # Check structure
+        # Check structure (updated to match new format)
         first_result = results[0]
         assert "subject" in first_result
         assert "from_name" in first_result
         assert "from_email" in first_result
-        assert "date" in first_result
-        assert "body_preview" in first_result
+        assert "preview" in first_result  # Changed from body_preview
         
         print(f"Retrieved {len(results)} recent emails")
         for i, email in enumerate(results[:3], 1):
             print(f"{i}. {email['subject']} from {email['from_email']}")
     
     @pytest.mark.asyncio
-    async def test_format_emails_for_llm(self, populated_email_system):
-        """Test email formatting for LLM consumption"""
+    async def test_email_preview_is_cleaned(self, populated_email_system):
+        """Test that email previews have HTML removed"""
         email_tools = populated_email_system["email_tools"]
         emails_loaded = populated_email_system["emails_loaded"]
         
         if emails_loaded == 0:
             pytest.skip("No emails available for testing")
         
-        results = await email_tools.search_emails(query="email", limit=3)
-        formatted = email_tools.format_emails_for_llm(results)
+        results = await email_tools.get_recent_emails(limit=5)
         
-        # Should be a string
-        assert isinstance(formatted, str)
-        
-        # Should contain key information
-        assert "Found" in formatted
-        assert "Subject:" in formatted
-        assert "From:" in formatted
-        
-        print("Formatted output:")
-        print(formatted)
-    
-    @pytest.mark.asyncio
-    async def test_format_emails_for_llm_empty_results(self, populated_email_system):
-        """Test formatting when no results found"""
-        email_tools = populated_email_system["email_tools"]
-        
-        formatted = email_tools.format_emails_for_llm([])
-        
-        assert formatted == "No emails found."
+        for email in results:
+            preview = email['preview']
+            # Should not contain HTML tags
+            assert '<' not in preview or '>' not in preview
+            # Should be reasonably short
+            assert len(preview) <= 210  # 200 chars + "..."
+            
+        print("✅ All email previews are properly cleaned")
     
     @pytest.mark.asyncio
     async def test_semantic_search_quality(self, populated_email_system):
@@ -290,12 +275,9 @@ class TestEmailSearchTools:
                 print(f"\nQuery: '{query}'")
                 print(f"Found {len(results)} results")
                 
-                # Check relevance scores - lower is better in vector search
-                scores = [r['relevance_score'] for r in results]
-                print(f"Relevance scores: {scores}")
-                
-                # Scores should generally increase (worse relevance) as you go down the list
-                # This verifies ranking is working
+                # Just verify we got results - structure is simpler now
+                for i, result in enumerate(results[:2], 1):
+                    print(f"  {i}. {result['subject'][:50]}...")
 
 
 class TestEmailToolsErrorHandling:
@@ -324,3 +306,31 @@ class TestEmailToolsErrorHandling:
         
         # Should return empty list, not error
         assert results == []
+    
+    @pytest.mark.asyncio
+    async def test_results_are_json_serializable(self, populated_email_system):
+        """Test that results can be serialized to JSON (important for LLM)"""
+        email_tools = populated_email_system["email_tools"]
+        emails_loaded = populated_email_system["emails_loaded"]
+        
+        if emails_loaded == 0:
+            pytest.skip("No emails available for testing")
+        
+        results = await email_tools.get_recent_emails(limit=3)
+        
+        # Should be JSON serializable
+        import json
+        try:
+            json_str = json.dumps(results)
+            assert json_str is not None
+            
+            # Should be able to deserialize back
+            deserialized = json.loads(json_str)
+            assert len(deserialized) == len(results)
+            
+            print("✅ Results are JSON serializable")
+        except (TypeError, ValueError) as e:
+            pytest.fail(f"Results are not JSON serializable: {e}")
+
+
+# Run with: pytest tests/integration/email/test_email_tools.py -v -s
